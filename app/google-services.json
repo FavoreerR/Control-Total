@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "856991817232",
+    "project_id": "control-total-d9afc",
+    "storage_bucket": "control-total-d9afc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:856991817232:android:64bbfcaa3cfeed28f4b495",
+        "android_client_info": {
+          "package_name": "cl.controltotal.finanzas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcW1A_ZfakKj_hY-W2IVz2C8GLtWtFoT8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

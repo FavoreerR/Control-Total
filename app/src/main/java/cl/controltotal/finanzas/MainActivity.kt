@@ -1,6 +1,9 @@
 package cl.controltotal.finanzas
 
 import android.os.Bundle
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -29,14 +32,22 @@ data class Entry(val name: String, val amount: Long, val owner: String, val type
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ControlTotal() }
+        setContent { ControlTotal(this) }
     }
 }
 @Composable
-fun ControlTotal() {
-    val entries = remember { mutableStateListOf<Entry>() }
-    var mySalary by remember { mutableStateOf("") }
-    var spouseSalary by remember { mutableStateOf("") }
+fun ControlTotal(context: Context) {
+    val prefs = remember { context.getSharedPreferences("control_total_local", Context.MODE_PRIVATE) }
+    fun save(entries: List<Entry>, self: String, spouse: String) {
+        val data = JSONArray()
+        entries.forEach { data.put(JSONObject().put("name", it.name).put("amount", it.amount).put("owner", it.owner).put("type", it.type)) }
+        prefs.edit().putString("entries", data.toString()).putString("self_salary", self).putString("spouse_salary", spouse).apply()
+    }
+    val entries = remember { mutableStateListOf<Entry>().apply {
+        runCatching { val data = JSONArray(prefs.getString("entries", "[]")); for (i in 0 until data.length()) { val e = data.getJSONObject(i); add(Entry(e.getString("name"), e.getLong("amount"), e.getString("owner"), e.getString("type"))) } }
+    } }
+    var mySalary by remember { mutableStateOf(prefs.getString("self_salary", "") ?: "") }
+    var spouseSalary by remember { mutableStateOf(prefs.getString("spouse_salary", "") ?: "") }
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var owner by remember { mutableStateOf("Familiar") }
@@ -63,9 +74,9 @@ fun ControlTotal() {
                             Text("Ingresos familiares", color = purple)
                             Text(clp(income), color = white, style = MaterialTheme.typography.headlineLarge)
                             Text("Tu sueldo", color = white)
-                            MoneyField(mySalary) { mySalary = it }
+                            MoneyField(mySalary) { mySalary = it; save(entries, mySalary, spouseSalary) }
                             Text("Sueldo de tu esposa", color = white)
-                            MoneyField(spouseSalary) { spouseSalary = it }
+                            MoneyField(spouseSalary) { spouseSalary = it; save(entries, mySalary, spouseSalary) }
                         }
                     }
                     item {
@@ -94,6 +105,7 @@ fun ControlTotal() {
                                 val n = amount.toLongOrNull()
                                 if (name.isNotBlank() && n != null && n > 0) {
                                     entries.add(0, Entry(name.trim(), n, owner, type))
+                                    save(entries, mySalary, spouseSalary)
                                     name = ""; amount = ""
                                 }
                             }) { Text("Agregar " + type.lowercase()) }
@@ -103,6 +115,7 @@ fun ControlTotal() {
                         Panel {
                             Text(entry.name, color = white, fontWeight = FontWeight.Bold)
                             Text(clp(entry.amount) + " · " + entry.owner, color = purple)
+                            TextButton(onClick = { entries.remove(entry); save(entries, mySalary, spouseSalary) }) { Text("Eliminar movimiento") }
                         }
                     }
                 }

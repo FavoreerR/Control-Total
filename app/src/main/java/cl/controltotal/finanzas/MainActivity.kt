@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.text.NumberFormat
 import java.util.Locale
+import java.time.YearMonth
 
 private val bg = Color(0xFF0C1025)
 private val card = Color(0xFF27224E)
@@ -28,7 +29,7 @@ private val purple = Color(0xFFC4B5FD)
 private val mint = Color(0xFF75F0BF)
 private val white = Color.White
 private fun clp(n: Long): String = "$" + NumberFormat.getIntegerInstance(Locale("es", "CL")).format(n)
-data class Entry(val name: String, val amount: Long, val owner: String, val type: String)
+data class Entry(val name: String, val amount: Long, val owner: String, val type: String, val month: String = YearMonth.now().toString())
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,11 +41,11 @@ fun ControlTotal(context: Context) {
     val prefs = remember { context.getSharedPreferences("control_total_local", Context.MODE_PRIVATE) }
     fun save(entries: List<Entry>, self: String, spouse: String) {
         val data = JSONArray()
-        entries.forEach { data.put(JSONObject().put("name", it.name).put("amount", it.amount).put("owner", it.owner).put("type", it.type)) }
+        entries.forEach { data.put(JSONObject().put("name", it.name).put("amount", it.amount).put("owner", it.owner).put("type", it.type).put("month", it.month)) }
         prefs.edit().putString("entries", data.toString()).putString("self_salary", self).putString("spouse_salary", spouse).apply()
     }
     val entries = remember { mutableStateListOf<Entry>().apply {
-        runCatching { val data = JSONArray(prefs.getString("entries", "[]")); for (i in 0 until data.length()) { val e = data.getJSONObject(i); add(Entry(e.getString("name"), e.getLong("amount"), e.getString("owner"), e.getString("type"))) } }
+        runCatching { val data = JSONArray(prefs.getString("entries", "[]")); for (i in 0 until data.length()) { val e = data.getJSONObject(i); add(Entry(e.getString("name"), e.getLong("amount"), e.getString("owner"), e.getString("type"), e.optString("month", YearMonth.now().toString()))) } }
     } }
     var mySalary by remember { mutableStateOf(prefs.getString("self_salary", "") ?: "") }
     var spouseSalary by remember { mutableStateOf(prefs.getString("spouse_salary", "") ?: "") }
@@ -53,10 +54,12 @@ fun ControlTotal(context: Context) {
     var owner by remember { mutableStateOf("Familiar") }
     var type by remember { mutableStateOf("Gasto") }
     var tab by remember { mutableStateOf("Inicio") }
+    var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
+    val monthlyEntries = entries.filter { it.month == selectedMonth.toString() }
     var budget by remember { mutableStateOf(prefs.getString("monthly_budget", "") ?: "") }
     val income = (mySalary.toLongOrNull() ?: 0L) + (spouseSalary.toLongOrNull() ?: 0L)
-    val expenses = entries.filter { it.type == "Gasto" }.sumOf { it.amount }
-    val debts = entries.filter { it.type == "Deuda" }.sumOf { it.amount }
+    val expenses = monthlyEntries.filter { it.type == "Gasto" }.sumOf { it.amount }
+    val debts = monthlyEntries.filter { it.type == "Deuda" }.sumOf { it.amount }
     val budgetAmount = budget.toLongOrNull() ?: 0L
     val spentRatio = if (budgetAmount > 0L) (expenses.toFloat() / budgetAmount.toFloat()).coerceIn(0f, 1f) else 0f
     MaterialTheme(colorScheme = darkColorScheme(primary = purple, surface = card, background = bg)) {
@@ -64,10 +67,15 @@ fun ControlTotal(context: Context) {
             Text("CONTROL TOTAL", color = purple, style = MaterialTheme.typography.labelMedium)
             Text("Finanzas familiares", color = white, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Inicio", "Gastos", "Deudas").forEach { label ->
-                    Button(onClick = { tab = label }, colors = ButtonDefaults.buttonColors(containerColor = if (tab == label) Color(0xFF6353AD) else card)) { Text(label) }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                listOf("Inicio", "Gastos", "Deudas", "Historial").forEach { label ->
+                    Button(onClick = { tab = label }, contentPadding = PaddingValues(horizontal = 9.dp, vertical = 6.dp), colors = ButtonDefaults.buttonColors(containerColor = if (tab == label) Color(0xFF6353AD) else card)) { Text(label, style = MaterialTheme.typography.labelSmall) }
                 }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextButton(onClick = { selectedMonth = selectedMonth.minusMonths(1) }) { Text("‹ Anterior") }
+                Text(selectedMonth.toString(), color = white, modifier = Modifier.padding(top = 12.dp))
+                TextButton(onClick = { selectedMonth = selectedMonth.plusMonths(1) }, enabled = selectedMonth < YearMonth.now()) { Text("Siguiente ›") }
             }
             Spacer(Modifier.height(12.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -99,6 +107,13 @@ fun ControlTotal(context: Context) {
                         }
                     }
                 }
+                if (tab == "Historial") {
+                    item { Text("Movimientos de " + selectedMonth.toString(), color = purple, style = MaterialTheme.typography.titleLarge) }
+                    items(monthlyEntries) { entry -> Panel {
+                        Text(entry.name, color = white, fontWeight = FontWeight.Bold)
+                        Text(entry.type + " · " + entry.owner + " · " + clp(entry.amount), color = purple)
+                    } }
+                }
                 if (tab == "Gastos" || tab == "Deudas") {
                     item {
                         Panel {
@@ -115,14 +130,14 @@ fun ControlTotal(context: Context) {
                             Button(onClick = {
                                 val n = amount.toLongOrNull()
                                 if (name.isNotBlank() && n != null && n > 0) {
-                                    entries.add(0, Entry(name.trim(), n, owner, type))
+                                    entries.add(0, Entry(name.trim(), n, owner, type, selectedMonth.toString()))
                                     save(entries, mySalary, spouseSalary)
                                     name = ""; amount = ""
                                 }
                             }) { Text("Agregar " + type.lowercase()) }
                         }
                     }
-                    items(entries.filter { it.type == if (tab == "Gastos") "Gasto" else "Deuda" }) { entry ->
+                    items(monthlyEntries.filter { it.type == if (tab == "Gastos") "Gasto" else "Deuda" }) { entry ->
                         Panel {
                             Text(entry.name, color = white, fontWeight = FontWeight.Bold)
                             Text(clp(entry.amount) + " · " + entry.owner, color = purple)

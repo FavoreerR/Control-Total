@@ -23,7 +23,8 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['ownerUid', 'members'])
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.members == {request.auth.uid: true};
+        && request.resource.data.members.keys().hasOnly([request.auth.uid])
+        && request.resource.data.members[request.auth.uid] == true;
       allow update: if signedIn()
         && resource.data.keys().hasOnly(['ownerUid', 'members'])
         && request.resource.data.ownerUid == resource.data.ownerUid

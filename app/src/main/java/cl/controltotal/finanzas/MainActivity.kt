@@ -53,9 +53,12 @@ fun ControlTotal(context: Context) {
     var owner by remember { mutableStateOf("Familiar") }
     var type by remember { mutableStateOf("Gasto") }
     var tab by remember { mutableStateOf("Inicio") }
+    var budget by remember { mutableStateOf(prefs.getString("monthly_budget", "") ?: "") }
     val income = (mySalary.toLongOrNull() ?: 0L) + (spouseSalary.toLongOrNull() ?: 0L)
     val expenses = entries.filter { it.type == "Gasto" }.sumOf { it.amount }
     val debts = entries.filter { it.type == "Deuda" }.sumOf { it.amount }
+    val budgetAmount = budget.toLongOrNull() ?: 0L
+    val spentRatio = if (budgetAmount > 0L) (expenses.toFloat() / budgetAmount.toFloat()).coerceIn(0f, 1f) else 0f
     MaterialTheme(colorScheme = darkColorScheme(primary = purple, surface = card, background = bg)) {
         Column(Modifier.fillMaxSize().background(bg).padding(18.dp)) {
             Text("CONTROL TOTAL", color = purple, style = MaterialTheme.typography.labelMedium)
@@ -84,7 +87,15 @@ fun ControlTotal(context: Context) {
                             Text("Gastos: " + clp(expenses), color = white)
                             Text("Deudas registradas: " + clp(debts), color = white)
                             Text("Disponible (descontando gastos)", color = mint)
-                            Text(clp(income - expenses), color = mint, style = MaterialTheme.typography.headlineMedium)
+                            Text(clp(income - expenses), color = if (income >= expenses) mint else Color(0xFFFF9A9A), style = MaterialTheme.typography.headlineMedium)
+                            HorizontalDivider()
+                            Text("Presupuesto de gastos", color = purple)
+                            MoneyField(budget) { budget = it; prefs.edit().putString("monthly_budget", it).apply() }
+                            if (budgetAmount > 0L) {
+                                LinearProgressIndicator(progress = { spentRatio }, modifier = Modifier.fillMaxWidth(), color = if (expenses > budgetAmount) Color(0xFFFF9A9A) else mint)
+                                Text("Utilizado: " + clp(expenses) + " de " + clp(budgetAmount), color = white)
+                                Text(if (expenses > budgetAmount) "Presupuesto excedido en " + clp(expenses - budgetAmount) else "Restante: " + clp(budgetAmount - expenses), color = if (expenses > budgetAmount) Color(0xFFFF9A9A) else mint)
+                            }
                         }
                     }
                 }

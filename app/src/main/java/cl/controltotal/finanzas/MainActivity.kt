@@ -45,6 +45,8 @@ fun ControlTotal(context: Context) {
         AuthScreen(onSignedIn = { signedIn = true })
         return
     }
+    CloudScreen(onSignedOut = { signedIn = false })
+    return
     val prefs = remember { context.getSharedPreferences("control_total_local", Context.MODE_PRIVATE) }
     fun save(entries: List<Entry>, self: String, spouse: String) {
         val data = JSONArray()

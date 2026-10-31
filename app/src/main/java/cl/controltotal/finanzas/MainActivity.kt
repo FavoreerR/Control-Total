@@ -2,6 +2,7 @@ package cl.controltotal.finanzas
 
 import android.os.Bundle
 import android.content.Context
+import com.google.firebase.auth.FirebaseAuth
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.activity.ComponentActivity
@@ -38,6 +39,12 @@ class MainActivity : ComponentActivity() {
 }
 @Composable
 fun ControlTotal(context: Context) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var signedIn by remember { mutableStateOf(auth.currentUser != null) }
+    if (!signedIn) {
+        AuthScreen(onSignedIn = { signedIn = true })
+        return
+    }
     val prefs = remember { context.getSharedPreferences("control_total_local", Context.MODE_PRIVATE) }
     fun save(entries: List<Entry>, self: String, spouse: String) {
         val data = JSONArray()
@@ -66,6 +73,10 @@ fun ControlTotal(context: Context) {
         Column(Modifier.fillMaxSize().background(bg).padding(18.dp)) {
             Text("CONTROL TOTAL", color = purple, style = MaterialTheme.typography.labelMedium)
             Text("Finanzas familiares", color = white, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(auth.currentUser?.email ?: "Cuenta", color = purple, style = MaterialTheme.typography.labelSmall)
+                TextButton(onClick = { auth.signOut(); signedIn = false }) { Text("Cerrar sesión") }
+            }
             Spacer(Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 listOf("Inicio", "Gastos", "Deudas", "Historial").forEach { label ->
@@ -156,4 +167,69 @@ private fun Panel(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun MoneyField(value: String, onChange: (String) -> Unit) {
     OutlinedTextField(value = value, onValueChange = { onChange(it.filter(Char::isDigit)) }, label = { Text("Monto en CLP") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun AuthScreen(onSignedIn: () -> Unit) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var creating by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    MaterialTheme(colorScheme = darkColorScheme(primary = purple, surface = card, background = bg)) {
+        Column(
+            modifier = Modifier.fillMaxSize().background(bg).padding(24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("CONTROL TOTAL", color = purple, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text("Tus finanzas familiares", color = white)
+            Spacer(Modifier.height(24.dp))
+            OutlinedTextField(
+                value = email, onValueChange = { email = it.trim() },
+                label = { Text("Correo electrónico") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = password, onValueChange = { password = it },
+                label = { Text("Contraseña (mínimo 6 caracteres)") },
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            if (error.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(error, color = Color(0xFFFFA3A3))
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                enabled = !busy && email.contains("@") && password.length >= 6,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    busy = true
+                    error = ""
+                    val task = if (creating) auth.createUserWithEmailAndPassword(email, password)
+                               else auth.signInWithEmailAndPassword(email, password)
+                    task.addOnCompleteListener { result ->
+                        busy = false
+                        if (result.isSuccessful) onSignedIn()
+                        else error = result.exception?.localizedMessage ?: "No se pudo iniciar sesión"
+                    }
+                }
+            ) { Text(if (busy) "Espera..." else if (creating) "Crear cuenta" else "Ingresar") }
+            TextButton(onClick = { creating = !creating; error = "" }) {
+                Text(if (creating) "Ya tengo cuenta" else "Crear una cuenta nueva")
+            }
+            TextButton(enabled = !busy && email.contains("@"), onClick = {
+                busy = true
+                auth.sendPasswordResetEmail(email).addOnCompleteListener { task ->
+                    busy = false
+                    error = if (task.isSuccessful) "Si la cuenta existe, recibirás instrucciones por correo."
+                            else "No se pudo solicitar la recuperación. Intenta nuevamente."
+                }
+            }) { Text("Olvidé mi contraseña") }
+        }
+    }
 }

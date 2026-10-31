@@ -32,7 +32,7 @@ private data class CloudEntry(
 )
 
 @Composable
-fun CloudScreen() {
+fun CloudScreen(onSignedOut: () -> Unit) {
     val auth = remember { FirebaseAuth.getInstance() }
     val db = remember { FirebaseFirestore.getInstance() }
     val uid = auth.currentUser?.uid ?: return
@@ -98,7 +98,7 @@ fun CloudScreen() {
                 HouseholdContent(db, householdId!!, uid, onError = { error = it })
             }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { auth.signOut() }) { Text("Cerrar sesión") }
+            TextButton(onClick = { auth.signOut(); onSignedOut() }) { Text("Cerrar sesión") }
         }
     }
 }

@@ -1,0 +1,31 @@
+name: ControlTotal
+options:
+  bundleIdPrefix: cl.controltotal
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 11.0.0
+targets:
+  ControlTotal:
+    type: application
+    platform: iOS
+    sources:
+      - path: ControlTotal
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cl.controltotal.finanzas.ios
+        INFOPLIST_FILE: ControlTotal/Info.plist
+        CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseCore

@@ -1,0 +1,21 @@
+name: Control Total iOS build
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Validate Firebase configuration
+        run: |
+          test -f ios/ControlTotal/GoogleService-Info.plist || { echo "::error::Register iOS app in Firebase and add GoogleService-Info.plist (non-secret config) to ios/ControlTotal/"; exit 1; }
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+      - name: Compile iOS simulator app
+        run: |
+          xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

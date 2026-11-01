@@ -40,4 +40,20 @@ jobs:
         run: cd ios && xcodegen generate
       - name: Build iOS simulator app (not an installable IPA)
         run: |
-          xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          set -o pipefail
+          xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build > /tmp/controltotal-ios-build.log 2>&1 || {
+            echo "::group::Swift compiler errors and surrounding context"
+            grep -n -E -C 5 '(^|[[:space:]])error:|SwiftCompile|BUILD FAILED' /tmp/controltotal-ios-build.log | tail -n 250 || true
+            echo "::endgroup::"
+            echo "::error::iOS simulator compilation failed; see concise errors above and attached full log"
+            exit 1
+          }
+          echo "iOS simulator compilation succeeded"
+      - name: Upload full compiler log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: control-total-ios-build-log
+          path: /tmp/controltotal-ios-build.log
+          if-no-files-found: ignore
+          retention-days: 7

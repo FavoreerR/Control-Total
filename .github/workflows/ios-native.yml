@@ -37,7 +37,9 @@ jobs:
           PLIST
           fi
       - name: Verify Firebase config for device distribution
-        if: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 != '' }}
+        if: ${{ env.FIREBASE_IOS_PLIST_BASE64 != '' }}
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
         run: |
           /usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' ios/ControlTotal/GoogleService-Info.plist >/dev/null
           /usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' ios/ControlTotal/GoogleService-Info.plist >/dev/null

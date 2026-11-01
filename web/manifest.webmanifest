@@ -1,1 +1,18 @@
-{"name":"Control Total","short_name":"Control Total","start_url":"/","display":"standalone","background_color":"#0c1025","theme_color":"#0c1025","icons":[]}
+{
+  "name": "Control Total",
+  "short_name": "Control Total",
+  "description": "Finanzas familiares compartidas",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0c1025",
+  "theme_color": "#0c1025",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

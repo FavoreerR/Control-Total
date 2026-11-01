@@ -36,6 +36,11 @@ jobs:
           </dict></plist>
           PLIST
           fi
+      - name: Verify Firebase config for device distribution
+        if: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 != '' }}
+        run: |
+          /usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' ios/ControlTotal/GoogleService-Info.plist >/dev/null
+          /usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' ios/ControlTotal/GoogleService-Info.plist >/dev/null
       - name: Generate Xcode project
         run: cd ios && xcodegen generate
       - name: Build iOS simulator app (not an installable IPA)
@@ -57,3 +62,70 @@ jobs:
           path: /tmp/controltotal-ios-build.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Check IPA signing prerequisites
+        id: signing
+        env:
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          if [ -n "$FIREBASE_CONFIG" ] && [ -n "$CERTIFICATE" ] && [ -n "$CERTIFICATE_PASSWORD" ] && [ -n "$PROFILE" ] && [ -n "$TEAM_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Simulator build passed. A signed iPhone IPA requires Firebase iOS config, Apple certificate, provisioning profile and team ID in repository secrets."
+          fi
+      - name: Install iOS signing credentials
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          echo "$PROFILE" | base64 --decode > "$RUNNER_TEMP/signing.mobileprovision"
+          security create-keychain -p "$RUNNER_TEMP" ios-build.keychain
+          security set-keychain-settings -lut 21600 ios-build.keychain
+          security unlock-keychain -p "$RUNNER_TEMP" ios-build.keychain
+          security import "$RUNNER_TEMP/signing.p12" -k ios-build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$RUNNER_TEMP" ios-build.keychain
+          security list-keychains -d user -s ios-build.keychain
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/signing.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/ControlTotal.mobileprovision"
+      - name: Archive native iOS app
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/ControlTotal.xcarchive" DEVELOPMENT_TEAM="$TEAM_ID" archive
+      - name: Export signed IPA
+        if: steps.signing.outputs.ready == 'true'
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>method</key><string>ad-hoc</string>
+          <key>teamID</key><string>$TEAM_ID</string>
+          <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/ControlTotal.xcarchive" -exportPath "$RUNNER_TEMP/ipa" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Upload signed IPA
+        if: steps.signing.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ControlTotal-iPhone-IPA
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: error
+      - name: Remove temporary signing credentials
+        if: always()
+        run: |
+          security delete-keychain ios-build.keychain 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/signing.p12" "$RUNNER_TEMP/signing.mobileprovision"

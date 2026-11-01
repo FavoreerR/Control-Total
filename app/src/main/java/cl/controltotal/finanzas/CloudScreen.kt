@@ -28,7 +28,7 @@ private fun pesos(value: Long) = "$" + NumberFormat.getIntegerInstance(Locale("e
 
 private data class CloudEntry(
     val id: String, val title: String, val amount: Long,
-    val type: String, val owner: String, val month: String
+    val type: String, val owner: String, val month: String, val createdAt: Long
 )
 
 @Composable
@@ -121,7 +121,7 @@ private fun HouseholdContent(
             entries = snapshot?.documents?.mapNotNull { d ->
                 val n = d.getLong("amount") ?: return@mapNotNull null
                 CloudEntry(d.id, d.getString("title") ?: "", n, d.getString("type") ?: "",
-                    d.getString("owner") ?: "", d.getString("month") ?: "")
+                    d.getString("owner") ?: "", d.getString("month") ?: "", d.getLong("createdAt") ?: 0L)
             } ?: emptyList()
         }
         onDispose { listener.remove() }
@@ -130,7 +130,7 @@ private fun HouseholdContent(
     val incomes = visible.filter { it.type == "Ingreso" }.sumOf { it.amount }
     val expenses = visible.filter { it.type == "Gasto" }.sumOf { it.amount }
     val debts = visible.filter { it.type == "Deuda" }.sumOf { it.amount }
-    Text("Código para compartir con tu pareja:", color = lavender)
+    Text("Código privado para compartir con tu pareja:", color = lavender)
     Text(householdId, color = Color.White, style = MaterialTheme.typography.bodySmall)
     Row {
         TextButton(onClick = { month = month.minusMonths(1) }) { Text("‹") }
@@ -139,6 +139,8 @@ private fun HouseholdContent(
     }
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
         Text("Ingresos familiares: " + pesos(incomes), color = green)
+        Text("Sueldo tuyo: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Yo" }.sumOf { it.amount }), color = Color.White)
+        Text("Sueldo de tu esposa: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Esposa" }.sumOf { it.amount }), color = Color.White)
         Text("Gastos: " + pesos(expenses), color = Color.White)
         Text("Deudas registradas: " + pesos(debts), color = lavender)
         Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3))
@@ -173,7 +175,7 @@ private fun HouseholdContent(
         }) { Text(if (sending) "Guardando..." else "Guardar movimiento") }
     Text("Historial del mes", color = lavender, style = MaterialTheme.typography.titleMedium)
     LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(visible.sortedByDescending { it.id }, key = { it.id }) { item ->
+        items(visible.sortedByDescending { it.createdAt }, key = { it.id }) { item ->
             Row(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(12.dp)).padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {

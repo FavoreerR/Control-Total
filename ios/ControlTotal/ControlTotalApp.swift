@@ -144,7 +144,7 @@ struct Movement: Identifiable {
 
 private let purple = Color(red: 0.53, green: 0.39, blue: 0.92)
 private let panel = Color(red: 0.14, green: 0.13, blue: 0.28)
-private let background = Color(red: 0.05, green: 0.07, blue: 0.15)
+private let appBackgroundColor = Color(red: 0.05, green: 0.07, blue: 0.15)
 
 struct RootView: View {
     @EnvironmentObject var model: FamilyModel
@@ -158,7 +158,7 @@ struct RootView: View {
             }
             .navigationTitle("CONTROL TOTAL")
             .toolbarColorScheme(.dark)
-            .background(background.ignoresSafeArea())
+            .background(appBackgroundColor.ignoresSafeArea())
             .tint(purple)
             .safeAreaInset(edge: .bottom) {
                 if !model.error.isEmpty {

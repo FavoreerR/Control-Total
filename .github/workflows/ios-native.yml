@@ -1,0 +1,28 @@
+name: Control Total iOS native build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-native.yml'
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+      - name: Check Firebase configuration
+        run: |
+          test -f ios/ControlTotal/GoogleService-Info.plist || {
+            echo "::error::Missing iOS Firebase GoogleService-Info.plist (register iOS bundle cl.controltotal.finanzas)"
+            exit 1
+          }
+      - name: Build iOS simulator app
+        run: |
+          xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

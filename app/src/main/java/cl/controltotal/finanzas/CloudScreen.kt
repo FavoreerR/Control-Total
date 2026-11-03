@@ -31,6 +31,20 @@ private val lavender = Color(0xFFC4B5FD)
 private val green = Color(0xFF75F0BF)
 private fun pesos(value: Long) = "$" + NumberFormat.getIntegerInstance(Locale("es", "CL")).format(value)
 
+private fun expenseCategory(title: String): String {
+    val t = title.lowercase(Locale("es", "CL"))
+    return when {
+        listOf("supermercado", "mercado", "almacén", "almacen", "comida", "pan", "verdura", "feria").any { it in t } -> "Alimentación"
+        listOf("arriendo", "dividendo", "casa", "hogar", "hipoteca").any { it in t } -> "Vivienda"
+        listOf("luz", "agua", "internet", "gas", "electricidad", "teléfono", "telefono").any { it in t } -> "Servicios"
+        listOf("bencina", "combustible", "micro", "bus", "uber", "transporte", "metro").any { it in t } -> "Transporte"
+        listOf("farmacia", "médico", "medico", "salud", "consulta").any { it in t } -> "Salud"
+        listOf("colegio", "universidad", "estudio", "matrícula", "matricula").any { it in t } -> "Educación"
+        listOf("abono:", "cuota", "crédito", "credito", "préstamo", "prestamo").any { it in t } -> "Pago de deudas"
+        else -> "Otros"
+    }
+}
+
 private data class CloudEntry(
     val id: String, val title: String, val amount: Long,
     val type: String, val owner: String, val month: String, val createdAt: Long
@@ -333,6 +347,34 @@ private fun HouseholdContent(
         Text("Al abonar desde esta sección, el gasto se registra automáticamente. No lo ingreses dos veces.", color = lavender, style = MaterialTheme.typography.bodySmall)
     }
     Spacer(Modifier.height(10.dp))
+    }
+    if (activeSection == "Resumen") {
+        Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
+            Text("Gastos por categoría", color = cyan, style = MaterialTheme.typography.titleMedium)
+            val categories = visible.filter { it.type == "Gasto" }
+                .groupBy { expenseCategory(it.title) }
+                .mapValues { (_, values) -> values.sumOf { it.amount } }
+                .toList().sortedByDescending { it.second }
+            if (categories.isEmpty()) {
+                Text("Aún no hay gastos registrados este mes.", color = muted)
+            } else {
+                categories.forEach { (category, total) ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(category, color = Color.White)
+                        Text(pesos(total), color = lavender)
+                    }
+                    if (expenses > 0L) {
+                        LinearProgressIndicator(
+                            progress = { (total.toFloat() / expenses.toFloat()).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+            Text("Clasificación automática aproximada según la descripción del gasto.", color = muted,
+                style = MaterialTheme.typography.bodySmall)
+        }
     }
     if (activeSection == "Resumen") {
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {

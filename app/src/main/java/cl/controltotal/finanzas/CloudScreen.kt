@@ -123,6 +123,8 @@ private fun HouseholdContent(
     var owner by remember { mutableStateOf("Familiar") }
     var sending by remember { mutableStateOf(false) }
     var historyFilter by remember { mutableStateOf("Todos") }
+    var historySearch by remember { mutableStateOf("") }
+    var historyOwner by remember { mutableStateOf("Todos") }
     var activeSection by remember { mutableStateOf("Resumen") }
     var showHouseholdCode by remember(householdId) { mutableStateOf(false) }
     var budgetText by remember(householdId) { mutableStateOf("") }
@@ -377,7 +379,26 @@ private fun HouseholdContent(
                 label = { Text(filter) })
         }
     }
-    val filteredHistory = visible.filter { historyFilter == "Todos" || it.type == historyFilter }
+    OutlinedTextField(
+        value = historySearch,
+        onValueChange = { historySearch = it },
+        label = { Text("Buscar movimiento") },
+        placeholder = { Text("Ej.: supermercado, sueldo, luz") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("Todos", "Familiar", "Yo", "Esposa").forEach { who ->
+            FilterChip(selected = historyOwner == who, onClick = { historyOwner = who },
+                label = { Text(who) })
+        }
+    }
+    val filteredHistory = visible.filter { item ->
+        (historyFilter == "Todos" || item.type == historyFilter) &&
+        (historyOwner == "Todos" || item.owner == historyOwner) &&
+        item.title.contains(historySearch.trim(), ignoreCase = true)
+    }
     if (filteredHistory.isEmpty()) Text("No hay movimientos para este filtro.", color = muted)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         filteredHistory.sortedByDescending { it.createdAt }.forEach { item ->

@@ -148,6 +148,14 @@ private fun HouseholdContent(
         Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3))
     }
     Spacer(Modifier.height(10.dp))
+    Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
+        Text("Análisis mensual", color = lavender, style = MaterialTheme.typography.titleMedium)
+        val ratio = if (incomes > 0L) (expenses.toFloat() / incomes.toFloat()).coerceIn(0f, 1f) else 0f
+        Text("Gastos sobre ingresos: " + if (incomes > 0L) "${(expenses * 100.0 / incomes).toInt()}%" else "Sin ingresos", color = Color.White)
+        LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth())
+        Text("Ingresos: " + pesos(incomes) + " · Gastos: " + pesos(expenses), color = Color.White)
+    }
+    Spacer(Modifier.height(10.dp))
     OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Descripción") },
         modifier = Modifier.fillMaxWidth(), singleLine = true)
     OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit) },

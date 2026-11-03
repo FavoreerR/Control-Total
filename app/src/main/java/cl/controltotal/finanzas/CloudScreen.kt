@@ -123,6 +123,7 @@ private fun HouseholdContent(
     var sending by remember { mutableStateOf(false) }
     var historyFilter by remember { mutableStateOf("Todos") }
     var activeSection by remember { mutableStateOf("Resumen") }
+    var showHouseholdCode by remember(householdId) { mutableStateOf(false) }
     var budgetText by remember(householdId) { mutableStateOf("") }
     var budgetSaving by remember { mutableStateOf(false) }
     var debtName by remember { mutableStateOf("") }
@@ -173,8 +174,18 @@ private fun HouseholdContent(
     val expenses = visible.filter { it.type == "Gasto" }.sumOf { it.amount }
     val debts = visible.filter { it.type == "Deuda" }.sumOf { it.amount }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Text("Código privado para compartir con tu pareja:", color = lavender)
-    Text(householdId, color = Color.White, style = MaterialTheme.typography.bodySmall)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Código privado del hogar", color = lavender)
+        TextButton(onClick = { showHouseholdCode = !showHouseholdCode }) {
+            Text(if (showHouseholdCode) "Ocultar" else "Mostrar")
+        }
+    }
+    if (showHouseholdCode) {
+        Text(householdId, color = Color.White, style = MaterialTheme.typography.bodySmall)
+        Text("Compártelo únicamente con personas de confianza.", color = muted, style = MaterialTheme.typography.bodySmall)
+    } else {
+        Text("Oculto por privacidad", color = muted, style = MaterialTheme.typography.bodySmall)
+    }
     Row {
         TextButton(onClick = { month = month.minusMonths(1) }) { Text("‹") }
         Text(month.toString(), color = Color.White, modifier = Modifier.padding(12.dp))

@@ -117,6 +117,7 @@ private fun HouseholdContent(
     var type by remember { mutableStateOf("Gasto") }
     var owner by remember { mutableStateOf("Familiar") }
     var sending by remember { mutableStateOf(false) }
+    var historyFilter by remember { mutableStateOf("Todos") }
     var budgetText by remember(householdId) { mutableStateOf("") }
     var budgetSaving by remember { mutableStateOf(false) }
     var debtName by remember { mutableStateOf("") }
@@ -335,9 +336,17 @@ private fun HouseholdContent(
                     else onError(result.exception?.localizedMessage ?: "No se pudo guardar")
                 }
         }) { Text(if (sending) "Guardando..." else "Guardar movimiento") }
-    Text("Historial del mes", color = lavender, style = MaterialTheme.typography.titleMedium)
+    Text("Historial del mes", color = cyan, style = MaterialTheme.typography.titleMedium)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("Todos", "Ingreso", "Gasto", "Deuda").forEach { filter ->
+            FilterChip(selected = historyFilter == filter, onClick = { historyFilter = filter },
+                label = { Text(filter) })
+        }
+    }
+    val filteredHistory = visible.filter { historyFilter == "Todos" || it.type == historyFilter }
+    if (filteredHistory.isEmpty()) Text("No hay movimientos para este filtro.", color = muted)
     LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(visible.sortedByDescending { it.createdAt }, key = { it.id }) { item ->
+        items(filteredHistory.sortedByDescending { it.createdAt }, key = { it.id }) { item ->
             Row(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(12.dp)).padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {

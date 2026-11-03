@@ -214,11 +214,44 @@ private fun HouseholdContent(
         Text(month.toString(), color = Color.White, modifier = Modifier.padding(12.dp))
         TextButton(onClick = { month = month.plusMonths(1) }, enabled = month < YearMonth.now()) { Text("›") }
     }
-    Text("Secciones", color = cyan, style = MaterialTheme.typography.titleMedium)
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(22.dp)).padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf("Resumen", "Movimientos", "Presupuesto", "Deudas").forEach { section ->
-            FilterChip(selected = activeSection == section, onClick = { activeSection = section },
-                label = { Text(section, style = MaterialTheme.typography.labelSmall) })
+            val selected = activeSection == section
+            Column(
+                modifier = Modifier.weight(1f)
+                    .background(if (selected) Color(0xFF49318C) else Color.Transparent, RoundedCornerShape(16.dp))
+                    .padding(vertical = 5.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            ) {
+                Text(
+                    when (section) {
+                        "Resumen" -> "⌂"
+                        "Movimientos" -> "⇄"
+                        "Presupuesto" -> "▥"
+                        else -> "◈"
+                    },
+                    color = if (selected) Color.White else muted,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                TextButton(
+                    onClick = { activeSection = section },
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                    modifier = Modifier.fillMaxWidth().height(30.dp)
+                ) {
+                    Text(
+                        when (section) {
+                            "Resumen" -> "Inicio"
+                            "Movimientos" -> "Movim."
+                            "Presupuesto" -> "Presup."
+                            else -> "Deudas"
+                        },
+                        color = if (selected) Color.White else muted,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+            }
         }
     }
     if (activeSection == "Resumen") {
@@ -382,7 +415,8 @@ private fun HouseholdContent(
     }
     if (activeSection == "Resumen") {
         Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
-            Text("Gastos por categoría", color = cyan, style = MaterialTheme.typography.titleMedium)
+            Text("◉ GASTOS POR CATEGORÍA", color = cyan, style = MaterialTheme.typography.titleMedium)
+            Text("Distribución de tus gastos de este mes", color = muted, style = MaterialTheme.typography.bodySmall)
             val categories = visible.filter { it.type == "Gasto" }
                 .groupBy { expenseCategory(it.title) }
                 .mapValues { (_, values) -> values.sumOf { it.amount } }

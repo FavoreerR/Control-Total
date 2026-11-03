@@ -21,7 +21,9 @@ import java.util.Locale
 import java.util.UUID
 
 private val navy = Color(0xFF0C1025)
-private val panel = Color(0xFF27224E)
+private val panel = Color(0xFF1B2042)
+private val cyan = Color(0xFF66D9FF)
+private val muted = Color(0xFF9BA8C9)
 private val lavender = Color(0xFFC4B5FD)
 private val green = Color(0xFF75F0BF)
 private fun pesos(value: Long) = "$" + NumberFormat.getIntegerInstance(Locale("es", "CL")).format(value)
@@ -51,9 +53,10 @@ fun CloudScreen(onSignedOut: () -> Unit) {
         onDispose { listener.remove() }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(primary = lavender, background = navy, surface = panel)) {
+    MaterialTheme(colorScheme = darkColorScheme(primary = lavender, secondary = cyan, background = navy, surface = panel, onSurface = Color.White)) {
         Column(Modifier.fillMaxSize().background(navy).padding(16.dp)) {
-            Text("CONTROL TOTAL", color = lavender, style = MaterialTheme.typography.headlineMedium)
+            Text("CONTROL TOTAL", color = cyan, style = MaterialTheme.typography.headlineMedium)
+            Text("Tus finanzas familiares, en un solo lugar", color = muted, style = MaterialTheme.typography.bodySmall)
             Text(auth.currentUser?.email ?: "", color = Color.White, style = MaterialTheme.typography.bodySmall)
             if (status.isNotEmpty()) { Text(status, color = lavender) }
             if (error.isNotEmpty()) { Text(error, color = Color(0xFFFFA3A3)) }
@@ -171,13 +174,16 @@ private fun HouseholdContent(
         TextButton(onClick = { month = month.plusMonths(1) }, enabled = month < YearMonth.now()) { Text("›") }
     }
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
+        Text("RESUMEN DEL MES", color = cyan, style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(6.dp))
         Text("Ingresos familiares: " + pesos(incomes), color = green)
         Text("Sueldo tuyo: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Yo" }.sumOf { it.amount }), color = Color.White)
         Text("Sueldo de tu esposa: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Esposa" }.sumOf { it.amount }), color = Color.White)
         Text("Gastos: " + pesos(expenses), color = Color.White)
         Text("Deudas registradas (no descontadas): " + pesos(debts), color = lavender)
         Text("El saldo descuenta gastos. Registra cada cuota pagada como Gasto para descontarla una sola vez.", color = lavender, style = MaterialTheme.typography.bodySmall)
-        Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3))
+        HorizontalDivider(color = lavender.copy(alpha = 0.25f), modifier = Modifier.padding(vertical = 8.dp))
+        Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3), style = MaterialTheme.typography.titleLarge)
     }
     Spacer(Modifier.height(10.dp))
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {

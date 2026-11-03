@@ -115,6 +115,9 @@ private fun HouseholdContent(
     var owner by remember { mutableStateOf("Familiar") }
     var sending by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<CloudEntry?>(null) }
+    var editing by remember { mutableStateOf<CloudEntry?>(null) }
+    var editTitle by remember { mutableStateOf("") }
+    var editAmount by remember { mutableStateOf("") }
     val ref = remember(householdId) { db.collection("households").document(householdId).collection("entries") }
     DisposableEffect(householdId) {
         val listener: ListenerRegistration = ref.addSnapshotListener { snapshot, ex ->
@@ -192,9 +195,33 @@ private fun HouseholdContent(
                     Text(item.title, color = Color.White)
                     Text(item.type + " · " + item.owner + " · " + pesos(item.amount), color = lavender)
                 }
-                TextButton(onClick = { pendingDelete = item }) { Text("Eliminar") }
+                Column {
+                    TextButton(onClick = { editing = item; editTitle = item.title; editAmount = item.amount.toString() }) { Text("Editar") }
+                    TextButton(onClick = { pendingDelete = item }) { Text("Eliminar") }
+                }
             }
         }
+    }
+    editing?.let { item ->
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Editar movimiento") },
+            text = {
+                Column {
+                    OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text("Descripción") })
+                    OutlinedTextField(value = editAmount, onValueChange = { editAmount = it.filter(Char::isDigit) }, label = { Text("Monto CLP") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = editTitle.isNotBlank() && (editAmount.toLongOrNull() ?: 0L) > 0L, onClick = {
+                    val newAmount = editAmount.toLongOrNull() ?: return@TextButton
+                    ref.document(item.id).update(mapOf("title" to editTitle.trim(), "amount" to newAmount))
+                        .addOnFailureListener { onError(it.localizedMessage ?: "No se pudo editar") }
+                    editing = null
+                }) { Text("Guardar") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancelar") } }
+        )
     }
     pendingDelete?.let { item ->
         AlertDialog(

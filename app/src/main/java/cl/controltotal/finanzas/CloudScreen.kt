@@ -208,6 +208,19 @@ private fun HouseholdContent(
             val paid = (debt["paid"] as? Number)?.toLong() ?: 0L
             Text((debt["title"] as? String ?: "Deuda") + " · " + (debt["owner"] as? String ?: "Familiar"), color = Color.White)
             Text("Pendiente: " + pesos(total - paid) + " · Cuotas: " + (debt["installments"] ?: "?") + " · Vence: " + (debt["dueDate"] ?: "Sin fecha"), color = lavender)
+            val dueDate = (debt["dueDate"] as? String)?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+            val daysUntilDue = dueDate?.let { java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(), it) }
+            if (total > paid && daysUntilDue != null) {
+                val warning = when {
+                    daysUntilDue < 0 -> "Cuota vencida hace ${-daysUntilDue} día(s)"
+                    daysUntilDue == 0L -> "La cuota vence hoy"
+                    daysUntilDue <= 7L -> "Próximo vencimiento en ${daysUntilDue} día(s)"
+                    else -> null
+                }
+                if (warning != null) {
+                    Text("⚠ " + warning, color = Color(0xFFFFC77D), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             if (total > 0) LinearProgressIndicator(progress = { (paid.toFloat() / total.toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
             val debtId = debt["id"] as? String ?: ""
             val paymentText = debtPaymentInputs[debtId] ?: ""

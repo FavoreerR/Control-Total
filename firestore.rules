@@ -33,6 +33,40 @@ service cloud.firestore {
         && request.resource.data.members[request.auth.uid] == true
         && !(request.auth.uid in resource.data.members);
       allow delete: if false;
+      match /budgets/{month} {
+        allow read: if member(hid);
+        allow create, update: if member(hid)
+          && month.matches('^[0-9]{4}-(0[1-9]|1[0-2])
+        allow get, list: if member(hid);
+        allow create: if member(hid)
+          && request.resource.data.keys().hasOnly(['title','amount','type','owner','month','createdBy','createdAt'])
+          && request.resource.data.title is string && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 160
+          && request.resource.data.amount is int && request.resource.data.amount > 0
+          && request.resource.data.type in ['Ingreso','Gasto','Deuda']
+          && request.resource.data.owner in ['Familiar','Yo','Esposa']
+          && request.resource.data.month.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdAt is int;
+        allow delete: if member(hid);
+        allow update: if member(hid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'amount'])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 160
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0;
+      }
+    }
+  }
+}
+)
+          && request.resource.data.keys().hasOnly(['amount', 'updatedBy'])
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.updatedBy == request.auth.uid;
+        allow delete: if false;
+      }
       match /entries/{entryId} {
         allow get, list: if member(hid);
         allow create: if member(hid)

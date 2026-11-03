@@ -5,7 +5,10 @@ import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
 import org.json.JSONArray
 import org.json.JSONObject
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -31,7 +34,7 @@ private val mint = Color(0xFF75F0BF)
 private val white = Color.White
 private fun clp(n: Long): String = "$" + NumberFormat.getIntegerInstance(Locale("es", "CL")).format(n)
 data class Entry(val name: String, val amount: Long, val owner: String, val type: String, val month: String = YearMonth.now().toString())
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { ControlTotal(this) }
@@ -45,7 +48,45 @@ fun ControlTotal(context: Context) {
         AuthScreen(onSignedIn = { signedIn = true })
         return
     }
-    CloudScreen(onSignedOut = { signedIn = false })
+    val activity = context as MainActivity
+    var unlocked by remember(signedIn) { mutableStateOf(false) }
+    var lockError by remember { mutableStateOf("") }
+    val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    val canAuthenticate = remember(activity) {
+        BiometricManager.from(activity).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+    if (canAuthenticate && !unlocked) {
+        MaterialTheme(colorScheme = darkColorScheme(primary = purple, background = bg)) {
+            Column(Modifier.fillMaxSize().background(bg).padding(24.dp),
+                verticalArrangement = Arrangement.Center) {
+                Text("Control Total protegido", color = white, style = MaterialTheme.typography.headlineMedium)
+                Text("Confirma tu identidad para ver tus finanzas.", color = purple)
+                if (lockError.isNotBlank()) Text(lockError, color = Color(0xFFFFA3A3))
+                Button(onClick = {
+                    lockError = ""
+                    val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity),
+                        object : BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                unlocked = true
+                            }
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                lockError = errString.toString()
+                            }
+                        })
+                    val info = BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Desbloquear Control Total")
+                        .setSubtitle("Usa tu huella, rostro compatible o bloqueo del dispositivo")
+                        .setAllowedAuthenticators(authenticators)
+                        .build()
+                    prompt.authenticate(info)
+                }) { Text("Desbloquear") }
+                TextButton(onClick = { auth.signOut(); signedIn = false }) { Text("Cerrar sesión") }
+            }
+        }
+    } else {
+        CloudScreen(onSignedOut = { signedIn = false })
+    }
     return
     val prefs = remember { context.getSharedPreferences("control_total_local", Context.MODE_PRIVATE) }
     fun save(entries: List<Entry>, self: String, spouse: String) {

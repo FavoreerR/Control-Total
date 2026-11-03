@@ -114,6 +114,7 @@ private fun HouseholdContent(
     var type by remember { mutableStateOf("Gasto") }
     var owner by remember { mutableStateOf("Familiar") }
     var sending by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<CloudEntry?>(null) }
     val ref = remember(householdId) { db.collection("households").document(householdId).collection("entries") }
     DisposableEffect(householdId) {
         val listener: ListenerRegistration = ref.addSnapshotListener { snapshot, ex ->
@@ -142,7 +143,8 @@ private fun HouseholdContent(
         Text("Sueldo tuyo: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Yo" }.sumOf { it.amount }), color = Color.White)
         Text("Sueldo de tu esposa: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Esposa" }.sumOf { it.amount }), color = Color.White)
         Text("Gastos: " + pesos(expenses), color = Color.White)
-        Text("Deudas registradas: " + pesos(debts), color = lavender)
+        Text("Deudas registradas (no descontadas): " + pesos(debts), color = lavender)
+        Text("El saldo descuenta gastos. Registra cada cuota pagada como Gasto para descontarla una sola vez.", color = lavender, style = MaterialTheme.typography.bodySmall)
         Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3))
     }
     Spacer(Modifier.height(10.dp))
@@ -182,12 +184,25 @@ private fun HouseholdContent(
                     Text(item.title, color = Color.White)
                     Text(item.type + " · " + item.owner + " · " + pesos(item.amount), color = lavender)
                 }
+                TextButton(onClick = { pendingDelete = item }) { Text("Eliminar") }
+            }
+        }
+    }
+    pendingDelete?.let { item ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("¿Eliminar movimiento?") },
+            text = { Text("Se eliminará ${item.title} por ${pesos(item.amount)} del historial compartido.") },
+            confirmButton = {
                 TextButton(onClick = {
+                    pendingDelete = null
                     ref.document(item.id).delete().addOnFailureListener {
                         onError(it.localizedMessage ?: "No se pudo eliminar")
                     }
                 }) { Text("Eliminar") }
-            }
-        }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancelar") } }
+        )
     }
+
 }

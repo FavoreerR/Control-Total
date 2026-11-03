@@ -109,7 +109,12 @@ service cloud.firestore {
 )
           && request.resource.data.owner in ['Familiar','Yo','Esposa']
           && request.resource.data.createdBy == request.auth.uid;
-        allow update, delete: if false;
+        allow update: if member(hid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid'])
+          && request.resource.data.paid is int
+          && request.resource.data.paid >= resource.data.paid
+          && request.resource.data.paid <= resource.data.total;
+        allow delete: if false;
       }
       match /budgets/{month} {
         allow read: if member(hid);

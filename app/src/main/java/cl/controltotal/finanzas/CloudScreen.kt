@@ -114,6 +114,8 @@ private fun HouseholdContent(
     var type by remember { mutableStateOf("Gasto") }
     var owner by remember { mutableStateOf("Familiar") }
     var sending by remember { mutableStateOf(false) }
+    var budgetText by remember(householdId) { mutableStateOf("") }
+    var budgetSaving by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<CloudEntry?>(null) }
     var editing by remember { mutableStateOf<CloudEntry?>(null) }
     var editTitle by remember { mutableStateOf("") }
@@ -129,6 +131,15 @@ private fun HouseholdContent(
             } ?: emptyList()
         }
         onDispose { listener.remove() }
+    }
+    DisposableEffect(householdId, month) {
+        val subscription = db.collection("households").document(householdId)
+            .collection("budgets").document(month.toString())
+            .addSnapshotListener { snap, ex ->
+                if (ex != null) { onError(ex.localizedMessage ?: "Error al leer presupuesto") }
+                else budgetText = (snap?.getLong("amount") ?: 0L).let { if (it == 0L) "" else it.toString() }
+            }
+        onDispose { subscription.remove() }
     }
     val visible = entries.filter { it.month == month.toString() }
     val incomes = visible.filter { it.type == "Ingreso" }.sumOf { it.amount }
@@ -149,6 +160,27 @@ private fun HouseholdContent(
         Text("Deudas registradas (no descontadas): " + pesos(debts), color = lavender)
         Text("El saldo descuenta gastos. Registra cada cuota pagada como Gasto para descontarla una sola vez.", color = lavender, style = MaterialTheme.typography.bodySmall)
         Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3))
+    }
+    Spacer(Modifier.height(10.dp))
+    Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
+        Text("Presupuesto familiar mensual", color = lavender, style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(value = budgetText, onValueChange = { budgetText = it.filter(Char::isDigit) },
+            label = { Text("Límite de gastos en CLP") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth())
+        val budget = budgetText.toLongOrNull() ?: 0L
+        if (budget > 0L) {
+            Text("Restante: " + pesos(budget - expenses), color = if (expenses <= budget) green else Color(0xFFFFA3A3))
+            LinearProgressIndicator(progress = { (expenses.toFloat() / budget.toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+        }
+        Button(enabled = !budgetSaving && budget > 0L, onClick = {
+            budgetSaving = true
+            db.collection("households").document(householdId).collection("budgets").document(month.toString())
+                .set(mapOf("amount" to budget, "updatedBy" to uid))
+                .addOnCompleteListener { result ->
+                    budgetSaving = false
+                    if (!result.isSuccessful) onError(result.exception?.localizedMessage ?: "No se pudo guardar presupuesto")
+                }
+        }) { Text("Guardar presupuesto") }
     }
     Spacer(Modifier.height(10.dp))
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {

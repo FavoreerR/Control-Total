@@ -123,6 +123,8 @@ private fun HouseholdContent(
     var debtDue by remember { mutableStateOf("") }
     var debtOwner by remember { mutableStateOf("Familiar") }
     var debtSaving by remember { mutableStateOf(false) }
+    var debtPaymentInputs by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var payingDebt by remember { mutableStateOf<String?>(null) }
     var debtRecords by remember(householdId) { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var pendingDelete by remember { mutableStateOf<CloudEntry?>(null) }
     var editing by remember { mutableStateOf<CloudEntry?>(null) }
@@ -153,7 +155,7 @@ private fun HouseholdContent(
         val subscription = db.collection("households").document(householdId)
             .collection("debts").addSnapshotListener { snap, ex ->
                 if (ex != null) onError(ex.localizedMessage ?: "Error al leer deudas")
-                else debtRecords = snap?.documents?.map { it.data ?: emptyMap<String, Any>() } ?: emptyList()
+                else debtRecords = snap?.documents?.map { (it.data ?: emptyMap<String, Any>()) + mapOf("id" to it.id) } ?: emptyList()
             }
         onDispose { subscription.remove() }
     }
@@ -207,6 +209,34 @@ private fun HouseholdContent(
             Text((debt["title"] as? String ?: "Deuda") + " · " + (debt["owner"] as? String ?: "Familiar"), color = Color.White)
             Text("Pendiente: " + pesos(total - paid) + " · Cuotas: " + (debt["installments"] ?: "?") + " · Vence: " + (debt["dueDate"] ?: "Sin fecha"), color = lavender)
             if (total > 0) LinearProgressIndicator(progress = { (paid.toFloat() / total.toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+            val debtId = debt["id"] as? String ?: ""
+            val paymentText = debtPaymentInputs[debtId] ?: ""
+            val paymentValue = paymentText.toLongOrNull() ?: 0L
+            if (total > paid && debtId.isNotEmpty()) {
+                OutlinedTextField(value = paymentText,
+                    onValueChange = { value -> debtPaymentInputs = debtPaymentInputs + (debtId to value.filter(Char::isDigit)) },
+                    label = { Text("Registrar pago de cuota (CLP)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth())
+                Button(enabled = payingDebt == null && paymentValue > 0L && paymentValue <= total - paid,
+                    onClick = {
+                        payingDebt = debtId
+                        val doc = db.collection("households").document(householdId).collection("debts").document(debtId)
+                        db.runTransaction { transaction ->
+                            val snapshot = transaction.get(doc)
+                            val currentTotal = snapshot.getLong("total") ?: throw IllegalStateException("Deuda inválida")
+                            val currentPaid = snapshot.getLong("paid") ?: throw IllegalStateException("Pago inválido")
+                            if (paymentValue <= 0L || paymentValue > currentTotal - currentPaid) throw IllegalStateException("El pago supera el saldo")
+                            transaction.update(doc, "paid", currentPaid + paymentValue)
+                            null
+                        }.addOnCompleteListener { result ->
+                            payingDebt = null
+                            if (result.isSuccessful) debtPaymentInputs = debtPaymentInputs - debtId
+                            else onError(result.exception?.localizedMessage ?: "No se pudo registrar el pago")
+                        }
+                    }) { Text("Abonar a deuda") }
+                Text("Este abono actualiza la deuda, pero no descuenta el dinero disponible. Registra el pago como Gasto si corresponde.", color = lavender, style = MaterialTheme.typography.bodySmall)
+            }
             Spacer(Modifier.height(8.dp))
         }
         OutlinedTextField(value = debtName, onValueChange = { debtName = it }, label = { Text("Nombre de la deuda") }, modifier = Modifier.fillMaxWidth())

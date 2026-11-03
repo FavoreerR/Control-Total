@@ -2,6 +2,7 @@ package cl.controltotal.finanzas
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -143,7 +144,7 @@ private fun HouseholdContent(
     val ref = remember(householdId) { db.collection("households").document(householdId).collection("entries") }
     DisposableEffect(householdId) {
         val listener: ListenerRegistration = ref.addSnapshotListener { snapshot, ex ->
-            if (ex != null) { onError(ex.localizedMessage ?: "No se pueden leer movimientos"); return@addSnapshotListener }
+            if (ex != null) { onError("Movimientos: " + (ex.localizedMessage ?: "Error de permisos")); return@addSnapshotListener }
             entries = snapshot?.documents?.mapNotNull { d ->
                 val n = d.getLong("amount") ?: return@mapNotNull null
                 CloudEntry(d.id, d.getString("title") ?: "", n, d.getString("type") ?: "",
@@ -156,7 +157,7 @@ private fun HouseholdContent(
         val subscription = db.collection("households").document(householdId)
             .collection("budgets").document(month.toString())
             .addSnapshotListener { snap, ex ->
-                if (ex != null) { onError(ex.localizedMessage ?: "Error al leer presupuesto") }
+                if (ex != null) { onError("Presupuesto: " + (ex.localizedMessage ?: "Error de permisos")) }
                 else budgetText = (snap?.getLong("amount") ?: 0L).let { if (it == 0L) "" else it.toString() }
             }
         onDispose { subscription.remove() }
@@ -164,7 +165,7 @@ private fun HouseholdContent(
     DisposableEffect(householdId) {
         val subscription = db.collection("households").document(householdId)
             .collection("debts").addSnapshotListener { snap, ex ->
-                if (ex != null) onError(ex.localizedMessage ?: "Error al leer deudas")
+                if (ex != null) onError("Deudas: " + (ex.localizedMessage ?: "Error de permisos"))
                 else debtRecords = snap?.documents?.map { (it.data ?: emptyMap<String, Any>()) + mapOf("id" to it.id) } ?: emptyList()
             }
         onDispose { subscription.remove() }
@@ -192,7 +193,7 @@ private fun HouseholdContent(
         TextButton(onClick = { month = month.plusMonths(1) }, enabled = month < YearMonth.now()) { Text("›") }
     }
     Text("Secciones", color = cyan, style = MaterialTheme.typography.titleMedium)
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf("Resumen", "Movimientos", "Presupuesto", "Deudas").forEach { section ->
             FilterChip(selected = activeSection == section, onClick = { activeSection = section },
                 label = { Text(section, style = MaterialTheme.typography.labelSmall) })

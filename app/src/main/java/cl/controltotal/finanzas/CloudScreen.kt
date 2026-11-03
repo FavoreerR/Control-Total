@@ -1,6 +1,8 @@
 package cl.controltotal.finanzas
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -98,9 +100,11 @@ fun CloudScreen(onSignedOut: () -> Unit) {
                     }
                 }) { Text("Unirme al hogar") }
             } else if (householdId != null) {
-                HouseholdContent(db, householdId!!, uid, onError = { error = it })
+                Box(Modifier.weight(1f)) {
+                    HouseholdContent(db, householdId!!, uid, onError = { error = it })
+                }
             }
-            Spacer(Modifier.weight(1f))
+            if (householdId == null) Spacer(Modifier.weight(1f))
             TextButton(onClick = { auth.signOut(); onSignedOut() }) { Text("Cerrar sesión") }
         }
     }
@@ -167,6 +171,7 @@ private fun HouseholdContent(
     val incomes = visible.filter { it.type == "Ingreso" }.sumOf { it.amount }
     val expenses = visible.filter { it.type == "Gasto" }.sumOf { it.amount }
     val debts = visible.filter { it.type == "Deuda" }.sumOf { it.amount }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     Text("Código privado para compartir con tu pareja:", color = lavender)
     Text(householdId, color = Color.White, style = MaterialTheme.typography.bodySmall)
     Row {
@@ -345,8 +350,8 @@ private fun HouseholdContent(
     }
     val filteredHistory = visible.filter { historyFilter == "Todos" || it.type == historyFilter }
     if (filteredHistory.isEmpty()) Text("No hay movimientos para este filtro.", color = muted)
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(filteredHistory.sortedByDescending { it.createdAt }, key = { it.id }) { item ->
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        filteredHistory.sortedByDescending { it.createdAt }.forEach { item ->
             Row(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(12.dp)).padding(10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
@@ -359,6 +364,7 @@ private fun HouseholdContent(
                 }
             }
         }
+    }
     }
     editing?.let { item ->
         AlertDialog(

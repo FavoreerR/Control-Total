@@ -361,7 +361,7 @@ private fun HouseholdContent(
                 categories.forEach { (category, total) ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(category, color = Color.White)
-                        Text(pesos(total), color = lavender)
+                        Text("${pesos(total)} · ${if (expenses > 0L) ((total * 100.0 / expenses).toInt()) else 0}%", color = lavender)
                     }
                     if (expenses > 0L) {
                         LinearProgressIndicator(

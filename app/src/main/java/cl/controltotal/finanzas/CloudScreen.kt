@@ -1,5 +1,6 @@
 package cl.controltotal.finanzas
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
@@ -13,8 +14,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -424,6 +427,41 @@ private fun HouseholdContent(
             if (categories.isEmpty()) {
                 Text("Aún no hay gastos registrados este mes.", color = muted)
             } else {
+                val chartColors = listOf(
+                    Color(0xFF9D5CFF), Color(0xFF00CFFF), Color(0xFF29E6A7),
+                    Color(0xFFFFBD46), Color(0xFFFF6E8B), Color(0xFF7188FF),
+                    Color(0xFFB7C1E4), Color(0xFF46D6E6)
+                )
+                val chartTotal = categories.sumOf { it.second }
+                Box(Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Canvas(modifier = Modifier.size(180.dp)) {
+                        var angle = -90f
+                        categories.forEachIndexed { index, (_, total) ->
+                            val sweep = if (chartTotal > 0L) total.toFloat() / chartTotal.toFloat() * 360f else 0f
+                            drawArc(
+                                color = chartColors[index % chartColors.size],
+                                startAngle = angle,
+                                sweepAngle = sweep,
+                                useCenter = false,
+                                style = Stroke(width = 26.dp.toPx())
+                            )
+                            angle += sweep
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("GASTOS", color = muted, style = MaterialTheme.typography.labelSmall)
+                        Text(pesos(chartTotal), color = Color.White, style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                categories.forEachIndexed { index, (category, total) ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).background(chartColors[index % chartColors.size], RoundedCornerShape(5.dp)))
+                        Text(category, color = Color.White, modifier = Modifier.weight(1f))
+                        Text(pesos(total), color = lavender)
+                    }
+                }
+                HorizontalDivider(color = lavender.copy(alpha = 0.2f))
                 categories.forEach { (category, total) ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(category, color = Color.White)

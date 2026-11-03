@@ -227,7 +227,20 @@ private fun HouseholdContent(
                             val currentTotal = snapshot.getLong("total") ?: throw IllegalStateException("Deuda inválida")
                             val currentPaid = snapshot.getLong("paid") ?: throw IllegalStateException("Pago inválido")
                             if (paymentValue <= 0L || paymentValue > currentTotal - currentPaid) throw IllegalStateException("El pago supera el saldo")
+                            val expenseRef = db.collection("households").document(householdId)
+                                .collection("entries").document()
+                            val debtTitle = snapshot.getString("title") ?: "Deuda"
+                            val debtOwnerValue = snapshot.getString("owner") ?: "Familiar"
                             transaction.update(doc, "paid", currentPaid + paymentValue)
+                            transaction.set(expenseRef, mapOf(
+                                "title" to "Abono: " + debtTitle,
+                                "amount" to paymentValue,
+                                "type" to "Gasto",
+                                "owner" to debtOwnerValue,
+                                "month" to YearMonth.now().toString(),
+                                "createdBy" to uid,
+                                "createdAt" to System.currentTimeMillis()
+                            ))
                             null
                         }.addOnCompleteListener { result ->
                             payingDebt = null
@@ -235,7 +248,7 @@ private fun HouseholdContent(
                             else onError(result.exception?.localizedMessage ?: "No se pudo registrar el pago")
                         }
                     }) { Text("Abonar a deuda") }
-                Text("Este abono actualiza la deuda, pero no descuenta el dinero disponible. Registra el pago como Gasto si corresponde.", color = lavender, style = MaterialTheme.typography.bodySmall)
+                Text("Cada abono registra automáticamente un gasto en el mes actual y actualiza el saldo de la deuda en una sola operación. No lo registres otra vez.", color = lavender, style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(8.dp))
         }

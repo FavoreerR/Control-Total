@@ -116,6 +116,14 @@ private fun HouseholdContent(
     var sending by remember { mutableStateOf(false) }
     var budgetText by remember(householdId) { mutableStateOf("") }
     var budgetSaving by remember { mutableStateOf(false) }
+    var debtName by remember { mutableStateOf("") }
+    var debtTotal by remember { mutableStateOf("") }
+    var debtPaid by remember { mutableStateOf("") }
+    var debtInstallments by remember { mutableStateOf("") }
+    var debtDue by remember { mutableStateOf("") }
+    var debtOwner by remember { mutableStateOf("Familiar") }
+    var debtSaving by remember { mutableStateOf(false) }
+    var debtRecords by remember(householdId) { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var pendingDelete by remember { mutableStateOf<CloudEntry?>(null) }
     var editing by remember { mutableStateOf<CloudEntry?>(null) }
     var editTitle by remember { mutableStateOf("") }
@@ -138,6 +146,14 @@ private fun HouseholdContent(
             .addSnapshotListener { snap, ex ->
                 if (ex != null) { onError(ex.localizedMessage ?: "Error al leer presupuesto") }
                 else budgetText = (snap?.getLong("amount") ?: 0L).let { if (it == 0L) "" else it.toString() }
+            }
+        onDispose { subscription.remove() }
+    }
+    DisposableEffect(householdId) {
+        val subscription = db.collection("households").document(householdId)
+            .collection("debts").addSnapshotListener { snap, ex ->
+                if (ex != null) onError(ex.localizedMessage ?: "Error al leer deudas")
+                else debtRecords = snap?.documents?.map { it.data ?: emptyMap<String, Any>() } ?: emptyList()
             }
         onDispose { subscription.remove() }
     }
@@ -181,6 +197,45 @@ private fun HouseholdContent(
                     if (!result.isSuccessful) onError(result.exception?.localizedMessage ?: "No se pudo guardar presupuesto")
                 }
         }) { Text("Guardar presupuesto") }
+    }
+    Spacer(Modifier.height(10.dp))
+    Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
+        Text("Control de deudas y cuotas", color = lavender, style = MaterialTheme.typography.titleMedium)
+        debtRecords.forEach { debt ->
+            val total = (debt["total"] as? Number)?.toLong() ?: 0L
+            val paid = (debt["paid"] as? Number)?.toLong() ?: 0L
+            Text((debt["title"] as? String ?: "Deuda") + " · " + (debt["owner"] as? String ?: "Familiar"), color = Color.White)
+            Text("Pendiente: " + pesos(total - paid) + " · Cuotas: " + (debt["installments"] ?: "?") + " · Vence: " + (debt["dueDate"] ?: "Sin fecha"), color = lavender)
+            if (total > 0) LinearProgressIndicator(progress = { (paid.toFloat() / total.toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+        }
+        OutlinedTextField(value = debtName, onValueChange = { debtName = it }, label = { Text("Nombre de la deuda") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = debtTotal, onValueChange = { debtTotal = it.filter(Char::isDigit) }, label = { Text("Monto total CLP") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = debtPaid, onValueChange = { debtPaid = it.filter(Char::isDigit) }, label = { Text("Total pagado CLP") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = debtInstallments, onValueChange = { debtInstallments = it.filter(Char::isDigit) }, label = { Text("Número de cuotas") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = debtDue, onValueChange = { debtDue = it }, label = { Text("Próximo vencimiento AAAA-MM-DD") }, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("Familiar", "Yo", "Esposa").forEach { who ->
+                FilterChip(selected = debtOwner == who, onClick = { debtOwner = who }, label = { Text(who) })
+            }
+        }
+        val totalValue = debtTotal.toLongOrNull() ?: 0L
+        val paidValue = debtPaid.toLongOrNull() ?: 0L
+        val installmentsValue = debtInstallments.toIntOrNull() ?: 0
+        val validDate = runCatching { java.time.LocalDate.parse(debtDue) }.isSuccess
+        Button(enabled = !debtSaving && debtName.isNotBlank() && totalValue > 0L && paidValue in 0L..totalValue && installmentsValue > 0 && validDate,
+            onClick = {
+                debtSaving = true
+                db.collection("households").document(householdId).collection("debts").add(
+                    mapOf("title" to debtName.trim(), "total" to totalValue, "paid" to paidValue,
+                        "installments" to installmentsValue, "dueDate" to debtDue, "owner" to debtOwner, "createdBy" to uid)
+                ).addOnCompleteListener { result ->
+                    debtSaving = false
+                    if (result.isSuccessful) { debtName = ""; debtTotal = ""; debtPaid = ""; debtInstallments = ""; debtDue = "" }
+                    else onError(result.exception?.localizedMessage ?: "No se pudo guardar deuda")
+                }
+            }) { Text("Agregar deuda") }
+        Text("Las deudas son informativas. Registra cada cuota efectivamente pagada como Gasto para descontarla del disponible.", color = lavender, style = MaterialTheme.typography.bodySmall)
     }
     Spacer(Modifier.height(10.dp))
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {

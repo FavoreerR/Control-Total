@@ -122,6 +122,7 @@ private fun HouseholdContent(
     var owner by remember { mutableStateOf("Familiar") }
     var sending by remember { mutableStateOf(false) }
     var historyFilter by remember { mutableStateOf("Todos") }
+    var activeSection by remember { mutableStateOf("Resumen") }
     var budgetText by remember(householdId) { mutableStateOf("") }
     var budgetSaving by remember { mutableStateOf(false) }
     var debtName by remember { mutableStateOf("") }
@@ -179,6 +180,14 @@ private fun HouseholdContent(
         Text(month.toString(), color = Color.White, modifier = Modifier.padding(12.dp))
         TextButton(onClick = { month = month.plusMonths(1) }, enabled = month < YearMonth.now()) { Text("›") }
     }
+    Text("Secciones", color = cyan, style = MaterialTheme.typography.titleMedium)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("Resumen", "Movimientos", "Presupuesto", "Deudas").forEach { section ->
+            FilterChip(selected = activeSection == section, onClick = { activeSection = section },
+                label = { Text(section, style = MaterialTheme.typography.labelSmall) })
+        }
+    }
+    if (activeSection == "Resumen") {
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
         Text("RESUMEN DEL MES", color = cyan, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
@@ -192,6 +201,8 @@ private fun HouseholdContent(
         Text("Disponible: " + pesos(incomes - expenses), color = if (incomes >= expenses) green else Color(0xFFFFA3A3), style = MaterialTheme.typography.titleLarge)
     }
     Spacer(Modifier.height(10.dp))
+    }
+    if (activeSection == "Presupuesto") {
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
         Text("Presupuesto familiar mensual", color = lavender, style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(value = budgetText, onValueChange = { budgetText = it.filter(Char::isDigit) },
@@ -213,6 +224,8 @@ private fun HouseholdContent(
         }) { Text("Guardar presupuesto") }
     }
     Spacer(Modifier.height(10.dp))
+    }
+    if (activeSection == "Deudas") {
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
         Text("Control de deudas y cuotas", color = lavender, style = MaterialTheme.typography.titleMedium)
         debtRecords.forEach { debt ->
@@ -303,9 +316,11 @@ private fun HouseholdContent(
                     else onError(result.exception?.localizedMessage ?: "No se pudo guardar deuda")
                 }
             }) { Text("Agregar deuda") }
-        Text("Las deudas son informativas. Registra cada cuota efectivamente pagada como Gasto para descontarla del disponible.", color = lavender, style = MaterialTheme.typography.bodySmall)
+        Text("Al abonar desde esta sección, el gasto se registra automáticamente. No lo ingreses dos veces.", color = lavender, style = MaterialTheme.typography.bodySmall)
     }
     Spacer(Modifier.height(10.dp))
+    }
+    if (activeSection == "Resumen") {
     Column(Modifier.fillMaxWidth().background(panel, RoundedCornerShape(16.dp)).padding(14.dp)) {
         Text("Análisis mensual", color = lavender, style = MaterialTheme.typography.titleMedium)
         val ratio = if (incomes > 0L) (expenses.toFloat() / incomes.toFloat()).coerceIn(0f, 1f) else 0f
@@ -314,6 +329,8 @@ private fun HouseholdContent(
         Text("Ingresos: " + pesos(incomes) + " · Gastos: " + pesos(expenses), color = Color.White)
     }
     Spacer(Modifier.height(10.dp))
+    }
+    if (activeSection == "Movimientos") {
     OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Descripción") },
         modifier = Modifier.fillMaxWidth(), singleLine = true)
     OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit) },
@@ -364,6 +381,7 @@ private fun HouseholdContent(
                 }
             }
         }
+    }
     }
     }
     editing?.let { item ->

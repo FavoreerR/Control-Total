@@ -50,6 +50,15 @@ fun ControlTotal(context: Context) {
     }
     val activity = context as MainActivity
     var unlocked by remember(signedIn) { mutableStateOf(false) }
+    DisposableEffect(activity, signedIn) {
+        val observer = object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
+                unlocked = false
+            }
+        }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
+    }
     var lockError by remember { mutableStateOf("") }
     val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
         BiometricManager.Authenticators.DEVICE_CREDENTIAL

@@ -279,8 +279,41 @@ private fun HouseholdContent(
                 Text("Ingresos menos gastos registrados", color = muted, style = MaterialTheme.typography.bodySmall)
             }
             HorizontalDivider(color = lavender.copy(alpha = 0.2f))
-            Text("Ingresos tuyos: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Yo" }.sumOf { it.amount }), color = Color.White)
-            Text("Ingresos de tu esposa: " + pesos(visible.filter { it.type == "Ingreso" && it.owner == "Esposa" }.sumOf { it.amount }), color = Color.White)
+            Text("SUELDOS DEL MES", color = cyan, style = MaterialTheme.typography.labelLarge)
+            listOf("Yo", "Esposa").forEach { person ->
+                val salaries = visible.filter { it.type == "Ingreso" && it.owner == person }
+                    .sortedByDescending { it.createdAt }
+                Text(
+                    (if (person == "Yo") "Mi sueldo e ingresos" else "Sueldo e ingresos de mi esposa") +
+                        ": " + pesos(salaries.sumOf { it.amount }),
+                    color = Color.White
+                )
+                if (salaries.isEmpty()) {
+                    TextButton(onClick = {
+                        activeSection = "Movimientos"
+                        type = "Ingreso"
+                        owner = person
+                        title = "Sueldo"
+                    }) { Text("＋ Registrar sueldo de " + (if (person == "Yo") "mi cuenta" else "mi esposa")) }
+                } else {
+                    salaries.forEach { salary ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(salary.title, color = muted, style = MaterialTheme.typography.bodySmall)
+                                Text(pesos(salary.amount), color = green)
+                            }
+                            TextButton(onClick = {
+                                editing = salary
+                                editTitle = salary.title
+                                editAmount = salary.amount.toString()
+                            }) { Text("Ajustar sueldo") }
+                        }
+                    }
+                }
+            }
+            Text("Ajustar modifica el ingreso existente. No crea otro registro.", color = muted,
+                style = MaterialTheme.typography.bodySmall)
             Text("Deudas registradas: " + pesos(debts), color = lavender)
             Text("Las deudas no se descuentan automáticamente: cada abono registrado se contabiliza como gasto una sola vez.",
                 color = muted, style = MaterialTheme.typography.bodySmall)

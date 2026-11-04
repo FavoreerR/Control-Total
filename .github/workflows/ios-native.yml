@@ -65,6 +65,30 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Build iPhone device app for personal signing
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$FIREBASE_IOS_PLIST_BASE64" ]; then
+            echo "::notice::Real Firebase iOS configuration is required before preparing a functional device build."
+            exit 0
+          fi
+          xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/ControlTotalDevice" CODE_SIGNING_ALLOWED=NO build
+          APP="$RUNNER_TEMP/ControlTotalDevice/Build/Products/Release-iphoneos/ControlTotal.app"
+          test -d "$APP"
+          mkdir -p "$RUNNER_TEMP/unsigned/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/unsigned/Payload/"
+          (cd "$RUNNER_TEMP/unsigned" && zip -qry "$RUNNER_TEMP/ControlTotal-unsigned-for-personal-signing.ipa" Payload)
+      - name: Upload unsigned device build for personal signing
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ControlTotal-iPhone-unsigned-for-signing
+          path: ${{ runner.temp }}/ControlTotal-unsigned-for-personal-signing.ipa
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Check IPA signing prerequisites
         id: signing
         env:

@@ -37,12 +37,13 @@ jobs:
           PLIST
           fi
       - name: Verify Firebase config for device distribution
-        if: ${{ env.FIREBASE_IOS_PLIST_BASE64 != '' }}
-        env:
-          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
         run: |
-          /usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' ios/ControlTotal/GoogleService-Info.plist >/dev/null
-          /usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' ios/ControlTotal/GoogleService-Info.plist >/dev/null
+          set -euo pipefail
+          PLIST=ios/ControlTotal/GoogleService-Info.plist
+          plutil -lint "$PLIST"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' "$PLIST")" = 'control-total-d9afc'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$PLIST")" = 'cl.controltotal.finanzas.ios'
+          /usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' "$PLIST" >/dev/null
       - name: Generate Xcode project
         run: cd ios && xcodegen generate
       - name: Build iOS simulator app (not an installable IPA)
@@ -66,14 +67,8 @@ jobs:
           retention-days: 7
 
       - name: Build iPhone device app for personal signing
-        env:
-          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
         run: |
           set -euo pipefail
-          if [ -z "$FIREBASE_IOS_PLIST_BASE64" ]; then
-            echo "::notice::Real Firebase iOS configuration is required before preparing a functional device build."
-            exit 0
-          fi
           xcodebuild -project ios/ControlTotal.xcodeproj -scheme ControlTotal -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/ControlTotalDevice" CODE_SIGNING_ALLOWED=NO build
           APP="$RUNNER_TEMP/ControlTotalDevice/Build/Products/Release-iphoneos/ControlTotal.app"
           test -d "$APP"
@@ -86,7 +81,7 @@ jobs:
         with:
           name: ControlTotal-iPhone-unsigned-for-signing
           path: ${{ runner.temp }}/ControlTotal-unsigned-for-personal-signing.ipa
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 7
 
       - name: Check IPA signing prerequisites

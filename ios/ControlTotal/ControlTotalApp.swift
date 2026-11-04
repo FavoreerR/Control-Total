@@ -142,8 +142,9 @@ struct Movement: Identifiable {
     }
 }
 
-private let purple = Color(red: 0.53, green: 0.39, blue: 0.92)
-private let panel = Color(red: 0.14, green: 0.13, blue: 0.28)
+private let purple = Color(red: 0.65, green: 0.38, blue: 1.0)
+private let cyan = Color(red: 0.27, green: 0.85, blue: 1.0)
+private let panel = Color(red: 0.09, green: 0.12, blue: 0.24)
 private let appBackgroundColor = Color(red: 0.05, green: 0.07, blue: 0.15)
 
 struct RootView: View {
@@ -218,6 +219,9 @@ struct DashboardView: View {
     @State private var amount = ""
     @State private var type = "Gasto"
     @State private var owner = "Familiar"
+    @State private var selectedTab = 0
+    @State private var showHouseholdCode = false
+    @State private var search = ""
     private var monthKey: String {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM"; return f.string(from: month)
     }
@@ -230,9 +234,17 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
+                    Label("CONTROL TOTAL", systemImage: "sparkles")
+                        .font(.title2.bold()).foregroundStyle(cyan)
+                    Text("FINANZAS FAMILIARES").font(.caption.bold()).foregroundStyle(purple)
                     Text(model.user?.email ?? "").font(.footnote).foregroundStyle(.secondary)
-                    Text("Código del hogar").font(.caption)
-                    Text(model.householdId ?? "").font(.caption.monospaced()).textSelection(.enabled)
+                    Button(showHouseholdCode ? "Ocultar código privado" : "Mostrar código privado") {
+                        showHouseholdCode.toggle()
+                    }.font(.caption)
+                    if showHouseholdCode {
+                        Text(model.householdId ?? "").font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
                 }.card()
                 HStack {
                     Button { month = Calendar.current.date(byAdding: .month, value: -1, to: month) ?? month } label: { Image(systemName: "chevron.left") }
@@ -242,6 +254,20 @@ struct DashboardView: View {
                     Button { month = Calendar.current.date(byAdding: .month, value: 1, to: month) ?? month } label: { Image(systemName: "chevron.right") }
                         .disabled(monthKey >= Date().formatted(.dateTime.year().month(.twoDigits)))
                 }.card()
+                HStack(spacing: 4) {
+                    ForEach(Array(["Inicio", "Movimientos"].enumerated()), id: \.offset) { index, name in
+                        Button {
+                            selectedTab = index
+                        } label: {
+                            Label(name, systemImage: index == 0 ? "house.fill" : "arrow.left.arrow.right")
+                                .font(.caption.bold())
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(selectedTab == index ? purple : panel)
+                    }
+                }
+                if selectedTab == 0 {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Ingresos familiares").foregroundStyle(.secondary)
                     Text(pesos(total("Ingreso"))).font(.largeTitle.bold()).foregroundStyle(.green)
@@ -250,6 +276,14 @@ struct DashboardView: View {
                     Divider()
                     Text("Disponible: \(pesos(total("Ingreso") - total("Gasto")))").font(.title3.bold())
                 }.card()
+                HStack(spacing: 12) {
+                    Label(pesos(total("Ingreso")), systemImage: "arrow.down.circle.fill")
+                        .foregroundStyle(.green).frame(maxWidth: .infinity)
+                    Label(pesos(total("Gasto")), systemImage: "arrow.up.circle.fill")
+                        .foregroundStyle(.pink).frame(maxWidth: .infinity)
+                }.font(.caption.bold()).card()
+                }
+                if selectedTab == 1 {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Nuevo movimiento").font(.headline)
                     TextField("Descripción", text: $title).textFieldStyle(.roundedBorder)
@@ -267,8 +301,9 @@ struct DashboardView: View {
                 }.card()
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Historial del mes").font(.headline)
+                    TextField("Buscar por descripción", text: $search).textFieldStyle(.roundedBorder)
                     if visible.isEmpty { Text("Sin movimientos este mes").foregroundStyle(.secondary) }
-                    ForEach(visible) { entry in
+                    ForEach(visible.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) }) { entry in
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(entry.title).font(.headline)
@@ -281,6 +316,7 @@ struct DashboardView: View {
                         Divider()
                     }
                 }.card()
+                }
                 Button("Cerrar sesión") { model.logout() }.padding()
             }.padding(16)
         }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>API_KEY</key><string>AIzaSyAQkeU3n6BA1JOI0e4JkiwcDNT4V6KQ5Kw</string>
+  <key>GCM_SENDER_ID</key><string>856991817232</string>
+  <key>PLIST_VERSION</key><string>1</string>
+  <key>BUNDLE_ID</key><string>cl.controltotal.finanzas.ios</string>
+  <key>PROJECT_ID</key><string>control-total-d9afc</string>
+  <key>STORAGE_BUCKET</key><string>control-total-d9afc.firebasestorage.app</string>
+  <key>IS_ADS_ENABLED</key><false/>
+  <key>IS_ANALYTICS_ENABLED</key><false/>
+  <key>IS_APPINVITE_ENABLED</key><true/>
+  <key>IS_GCM_ENABLED</key><true/>
+  <key>IS_SIGNIN_ENABLED</key><true/>
+  <key>GOOGLE_APP_ID</key><string>1:856991817232:ios:d9b2beabf808a22af4b495</string>
+</dict>
+</plist>

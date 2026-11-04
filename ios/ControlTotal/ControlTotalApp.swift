@@ -230,6 +230,22 @@ struct DashboardView: View {
     }
     private func total(_ type: String) -> Int { visible.filter { $0.type == type }.reduce(0) { $0 + $1.amount } }
     private func pesos(_ n: Int) -> String { n.formatted(.currency(code: "CLP").precision(.fractionLength(0))) }
+    private func category(for title: String) -> String {
+        let t = title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es_CL"))
+        if ["supermercado", "mercado", "almacen", "comida", "pan", "feria"].contains(where: t.contains) { return "Alimentación" }
+        if ["arriendo", "dividendo", "hipoteca", "vivienda"].contains(where: t.contains) { return "Vivienda" }
+        if ["luz", "agua", "internet", "gas", "electricidad", "telefono"].contains(where: t.contains) { return "Servicios" }
+        if ["bencina", "micro", "bus", "uber", "transporte", "metro"].contains(where: t.contains) { return "Transporte" }
+        if ["farmacia", "medico", "salud", "consulta"].contains(where: t.contains) { return "Salud" }
+        if ["colegio", "universidad", "estudio", "matricula"].contains(where: t.contains) { return "Educación" }
+        if ["abono:", "cuota", "credito", "prestamo"].contains(where: t.contains) { return "Pago de deudas" }
+        return "Otros"
+    }
+    private var categories: [(name: String, amount: Int)] {
+        let groups = Dictionary(grouping: visible.filter { $0.type == "Gasto" }, by: { category(for: $0.title) })
+        return groups.map { (name: $0.key, amount: $0.value.reduce(0) { $0 + $1.amount }) }
+            .sorted { $0.amount > $1.amount }
+    }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -275,6 +291,29 @@ struct DashboardView: View {
                     Label("Deudas: \(pesos(total("Deuda")))", systemImage: "creditcard")
                     Divider()
                     Text("Disponible: \(pesos(total("Ingreso") - total("Gasto")))").font(.title3.bold())
+                }.card()
+                VStack(alignment: .leading, spacing: 14) {
+                    Label("Gastos por categoría", systemImage: "chart.pie.fill")
+                        .font(.headline).foregroundStyle(cyan)
+                    if categories.isEmpty {
+                        Text("Sin gastos este mes").foregroundStyle(.secondary)
+                    } else {
+                        ForEach(categories, id: \.name) { item in
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(item.name).font(.subheadline)
+                                    Spacer()
+                                    Text(pesos(item.amount)).font(.subheadline.bold())
+                                    Text("\(total("Gasto") > 0 ? Int(Double(item.amount) / Double(total("Gasto")) * 100) : 0)%")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                ProgressView(value: Double(item.amount), total: Double(max(total("Gasto"), 1)))
+                                    .tint(purple)
+                            }
+                        }
+                    }
+                    Text("Categorías estimadas según la descripción de cada gasto.")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }.card()
                 HStack(spacing: 12) {
                     Label(pesos(total("Ingreso")), systemImage: "arrow.down.circle.fill")

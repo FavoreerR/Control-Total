@@ -1,0 +1,37 @@
+workflows:
+  control-total-ios-device:
+    name: Control Total iPhone - device IPA (unsigned)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      xcode: latest
+    scripts:
+      - name: Check real Firebase configuration
+        script: |
+          set -euo pipefail
+          PLIST="$CM_BUILD_DIR/ios/ControlTotal/GoogleService-Info.plist"
+          plutil -lint "$PLIST"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :PROJECT_ID' "$PLIST")" = "control-total-d9afc"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$PLIST")" = "cl.controltotal.finanzas.ios"
+      - name: Install XcodeGen
+        script: |
+          brew install xcodegen
+      - name: Generate native iOS project
+        script: |
+          cd "$CM_BUILD_DIR/ios"
+          xcodegen generate
+      - name: Compile iPhone app without Apple signing
+        script: |
+          set -euo pipefail
+          xcodebuild -project "$CM_BUILD_DIR/ios/ControlTotal.xcodeproj" -scheme ControlTotal -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$CM_BUILD_DIR/ios-device-build" CODE_SIGNING_ALLOWED=NO build
+      - name: Package IPA for personal signing
+        script: |
+          set -euo pipefail
+          APP="$CM_BUILD_DIR/ios-device-build/Build/Products/Release-iphoneos/ControlTotal.app"
+          test -d "$APP"
+          mkdir -p "$CM_BUILD_DIR/ios-output/Payload"
+          cp -R "$APP" "$CM_BUILD_DIR/ios-output/Payload/"
+          cd "$CM_BUILD_DIR/ios-output"
+          zip -qry ControlTotal-unsigned-for-personal-signing.ipa Payload
+    artifacts:
+      - ios-output/*.ipa
